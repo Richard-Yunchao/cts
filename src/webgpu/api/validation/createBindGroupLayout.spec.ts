@@ -12,9 +12,8 @@ import {
   kShaderStages,
   kShaderStageCombinations,
   kTextureBindingTypeInfo,
-  kTextureComponentTypeInfo,
-  kTextureFormatInfo,
-  kTextureViewDimensionInfo,
+  kTextureComponentTypes,
+  kTextureViewDimensions,
 } from '../../capability_info.js';
 
 import { ValidationTest } from './validation_test.js';
@@ -69,7 +68,7 @@ g.test('visibility_and_dynamic_offsets')
     }, !success);
   });
 
-g.test('mininum_buffer_binding_size')
+g.test('min_buffer_binding_size')
   .params(
     params()
       .combine(poptions('type', kBindingTypes))
@@ -98,18 +97,12 @@ g.test('view_dimension')
   .params(
     params()
       .combine(poptions('type', kBindingTypes))
-      .combine(poptions('viewDimension', [undefined, '2d', 'cube'] as const))
+      .combine(poptions('viewDimension', [undefined, ...kTextureViewDimensions]))
   )
   .fn(async t => {
     const { type, viewDimension } = t.params;
 
-    let success = false;
-    if (
-      viewDimension === undefined ||
-      (viewDimension in kTextureViewDimensionInfo && type in kTextureBindingTypeInfo)
-    ) {
-      success = true;
-    }
+    const success = viewDimension === undefined || type in kTextureBindingTypeInfo;
 
     t.expectValidationError(() => {
       t.device.createBindGroupLayout({
@@ -122,18 +115,13 @@ g.test('texture_component_type')
   .params(
     params()
       .combine(poptions('type', kBindingTypes))
-      .combine(poptions('textureComponentType', [undefined, 'float', 'uint'] as const))
+      .combine(poptions('textureComponentType', [undefined, ...kTextureComponentTypes]))
   )
   .fn(async t => {
     const { type, textureComponentType } = t.params;
 
-    let success = false;
-    if (
-      textureComponentType === undefined ||
-      (textureComponentType in kTextureComponentTypeInfo && type === 'sampled-texture')
-    ) {
-      success = true;
-    }
+    const success =
+      textureComponentType === undefined || kBindingTypeInfo[type].resource === 'sampledTex';
 
     t.expectValidationError(() => {
       t.device.createBindGroupLayout({
@@ -143,11 +131,15 @@ g.test('texture_component_type')
   });
 
 g.test('multisampled')
-  .params(params().combine(poptions('type', kBindingTypes)).combine(pbool('multisampled')))
+  .params(
+    params()
+      .combine(poptions('type', kBindingTypes))
+      .combine(poptions('multisampled', [undefined, false, true]))
+  )
   .fn(async t => {
     const { type, multisampled } = t.params;
 
-    const success = multisampled === false || type === 'sampled-texture';
+    const success = multisampled === false || kBindingTypeInfo[type].resource === 'sampledTex';
 
     t.expectValidationError(() => {
       t.device.createBindGroupLayout({
@@ -165,14 +157,8 @@ g.test('storage_texture_format')
   .fn(async t => {
     const { type, storageTextureFormat } = t.params;
 
-    let success = false;
-    if (
-      storageTextureFormat === undefined ||
-      (storageTextureFormat in kTextureFormatInfo &&
-        (type === 'readonly-storage-texture' || type === 'writeonly-storage-texture'))
-    ) {
-      success = true;
-    }
+    const success =
+      storageTextureFormat === undefined || kBindingTypeInfo[type].resource === 'storageTex';
 
     t.expectValidationError(() => {
       t.device.createBindGroupLayout({
